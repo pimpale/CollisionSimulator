@@ -9,6 +9,7 @@ import java.awt.RenderingHints;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+
 import java.util.ArrayList;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -28,12 +29,12 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 	int mousex = 0;
 	int mousey = 0;
 
-	int speed = 100;
+	int speed = 10;
 
 	private final Rectangle addObjectButton = new Rectangle(800, 20, 80, 20);
 	private final Rectangle pauseButton = new Rectangle(710, 20,80,20);
 	private final Rectangle setSpeedButton = new Rectangle(800, 20, 80, 20);
-	
+
 	public CollisionSimulator()
 	{
 		addMouseListener(this);
@@ -58,7 +59,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 			}
 		}
 	}
-	
+
 	@Override
 	public void mouseClicked(MouseEvent event) 
 	{
@@ -70,10 +71,10 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		{
 			gamepaused = !gamepaused;
 		}
-		
+
 
 		//changes the speed of the application
-		if(IsButtonClicked(710, 260, 260,20))
+		if(isButtonClicked(setSpeedButton))
 		{
 			speed = (int)getResponse("Input application speed. Only positive integers.", speed, true, true);
 		}
@@ -99,7 +100,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		mouseDown = true;
 
 		//creates a Entity that can be dragged
-		if(IsButtonClicked(800, 20, 80, 20) && mouseDown)
+		if(isButtonClicked(addObjectButton) && mouseDown)
 		{
 			if(getEdited() > -1)
 			{
@@ -135,11 +136,11 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 	}
 
 	//checks if mouse is within bounds of button
-	boolean IsButtonClicked(int x, int y, int width, int height)
+	boolean isButtonClicked(int x, int y, int width, int height)
 	{
 		return isButtonClicked(new Rectangle(x, y, width, height));
 	}
-	
+
 	boolean isButtonClicked(Rectangle r)
 	{
 		return r.contains(mousex, mousey);
@@ -196,32 +197,76 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		return -1;
 	}
 
-
-
-	void collideEntities(int EntityIndex1, int EntityIndex2)
+	//returns distance from 1 particle to another
+	public static double GetDistance(Entity i, Entity a)
 	{
-		//double check to make sure these are within bounds
-		if(EntityIndex1 < EntityList.size() &&
-				EntityIndex2 < EntityList.size() && 
-				EntityIndex1!=EntityIndex2)//check that we are not colliding the same objects
-		{
-			Entity e1 = EntityList.get(EntityIndex1);
-			Entity e2 = EntityList.get(EntityIndex2);
-			double newX = (e1.X*e1.Mass + e2.X*e2.Mass)/(e1.Mass+e2.Mass);//weighted averages
-			double newY = (e1.Y*e1.Mass + e2.Y*e2.Mass)/(e1.Mass+e2.Mass);
-			double newXMomentum = e1.XMomentum + e2.XMomentum;//add together momentum, conserving it
-			double newYMomentum = e1.YMomentum + e2.YMomentum;
-			double newMass = e1.Mass + e2.Mass;
-			Entity newEntity = new Entity(newX, newY, newXMomentum, newYMomentum, newMass, Entity.TYPE_GRAVITYAFFECTED);
-			if(e1.edited || e2.edited)
-			{
-				newEntity.edited = true;
-			}
-			EntityList.add(newEntity);
-			EntityList.remove(e1);
-			EntityList.remove(e2);//remove these entities
-		}	
+		return Math.sqrt(Math.pow(i.X-a.X, 2) + Math.pow(i.Y-a.Y, 2));
 	}
+	//returns distance from 1 point to another
+	public static double GetDistance(double x1, double y1, double x2, double y2)
+	{
+		return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1- y2, 2));
+	}
+
+	public static double GetRelativeVelocity(Entity i, Entity a)
+	{
+		return Math.sqrt(Math.pow(i.getXVel() - a.getXVel(),2) + Math.pow(i.getYVel()-a.getYVel(), 2));
+	}
+
+	//returns direction from i to a
+	public static double GetDirection(Entity i, Entity a)
+	{
+		return  Math.atan2(a.Y-i.Y, a.X-i.X);
+	}
+
+	//this adds velocity to the specified particle
+	public static void AddVelocity(Entity modifiedParticle, double theta, double magnitude)
+	{
+		modifiedParticle.setXVel(modifiedParticle.getXVel() + magnitude * Math.cos(theta));
+		modifiedParticle.setYVel(modifiedParticle.getYVel() + magnitude * Math.sin(theta));
+	}
+
+
+
+	void collideEntities(Entity e1, Entity e2)
+	{
+		double newX = (e1.X*e1.Mass + e2.X*e2.Mass)/(e1.Mass+e2.Mass);//weighted averages
+		double newY = (e1.Y*e1.Mass + e2.Y*e2.Mass)/(e1.Mass+e2.Mass);
+		double newXMomentum = e1.XMomentum + e2.XMomentum;//add together momentum, conserving it
+		double newYMomentum = e1.YMomentum + e2.YMomentum;
+		double newMass = e1.Mass + e2.Mass;
+		Entity newEntity = new Entity(newX, newY, newXMomentum, newYMomentum, newMass, Entity.TYPE_GRAVITYAFFECTED);
+		if(e1.edited || e2.edited)
+		{
+			newEntity.edited = true;
+		}
+		EntityList.add(newEntity);
+		EntityList.remove(e1);
+		EntityList.remove(e2);//remove these entities
+	}
+
+	//collides two particles together elastically
+	void CollideParticles(Entity p1, Entity p2)
+	{
+		double colAng = GetDirection(p1, p2);
+		double mag1 = Math.sqrt(p1.getXVel()*p1.getXVel()+p1.getYVel()*p1.getYVel());
+		double mag2 = Math.sqrt(p2.getXVel()*p2.getXVel()+p2.getYVel()*p2.getYVel());
+		double dir1 = Math.atan2(p1.getYVel(), p1.getXVel());
+		double dir2 = Math.atan2(p2.getYVel(), p2.getYVel());
+		double nXvel_1 = mag1*Math.cos(dir1-colAng);
+		double nYvel_1 = mag1*Math.sin(dir1-colAng);
+		double nXvel_2 = mag2*Math.cos(dir2-colAng);
+		double nYvel_2 = mag2*Math.sin(dir2-colAng);
+		double final_Xvel_1 = ((p1.Mass-p2.Mass)*nXvel_1+(p2.Mass+p2.Mass)*nXvel_2)/(p1.Mass+p2.Mass);
+		double final_Xvel_2 = ((p1.Mass+p1.Mass)*nXvel_1+(p2.Mass-p1.Mass)*nXvel_2)/(p1.Mass+p2.Mass);
+		double final_Yvel_1 = nYvel_1;
+		double final_Yvel_2 = nYvel_2;
+		p1.setXVel(Math.cos(colAng)*final_Xvel_1+Math.cos(colAng+Math.PI/2)*final_Yvel_1);
+		p1.setYVel(Math.sin(colAng)*final_Xvel_1+Math.sin(colAng+Math.PI/2)*final_Yvel_1);
+		p2.setXVel(Math.cos(colAng)*final_Xvel_2+Math.cos(colAng+Math.PI/2)*final_Yvel_2);
+		p2.setYVel(Math.sin(colAng)*final_Xvel_2+Math.sin(colAng+Math.PI/2)*final_Yvel_2);
+	}
+
 
 	void checkEdit()//lets you click to edit
 	{
@@ -251,7 +296,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 
 		int editedID = getEdited();
 		//the following buttons edit the properties of the selected Entity
-		if(IsButtonClicked(900, 90, 50, 12))//set mass to a positive value
+		if(isButtonClicked(900, 90, 50, 12))//set mass to a positive value
 		{
 			Entity e = EntityList.get(editedID);
 			double newMass = getResponse("Input Mass", e.Mass, false,true);
@@ -262,22 +307,22 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 			e.XMomentum = e.Mass*xVelocity;
 			e.YMomentum = e.Mass*yVelocity;
 		}
-		if(IsButtonClicked(900, 130, 50, 12))
+		if(isButtonClicked(900, 130, 50, 12))
 		{
 			Entity e = EntityList.get(editedID);
 			e.X = getResponse("Input X location", e.X ,false,true);//set location (positive values only)
 		}
-		if(IsButtonClicked(900, 150, 50, 12))
+		if(isButtonClicked(900, 150, 50, 12))
 		{
 			Entity e = EntityList.get(editedID);
 			e.Y = getResponse("Input Y location", e.Y ,false,true);
 		}
-		if(IsButtonClicked(900, 190, 50, 12))
+		if(isButtonClicked(900, 190, 50, 12))
 		{	
 			Entity e = EntityList.get(editedID);
 			e.XMomentum = e.Mass*getResponse("Input X momentum", e.XMomentum ,false,false);//sets the x momentum to the mass of the object * the user input velocity
 		}
-		if(IsButtonClicked(900, 210, 50, 12))
+		if(isButtonClicked(900, 210, 50, 12))
 		{
 			Entity e = EntityList.get(editedID);
 			e.YMomentum = e.Mass*getResponse("Input Y momentum", e.YMomentum ,false,false);
@@ -345,7 +390,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 						if(i != a && e2.Type == Entity.TYPE_GRAVITYAFFECTED)
 						{
 							double distance = Math.sqrt(Math.pow(e1.X-e2.X,2)+ Math.pow(e1.Y-e2.Y,2));
-							if(distance > 1 + 0.7*(e1.getRadius()+e2.getRadius()))//this block changes the momentum of e2 
+							if(distance > (e1.getRadius()+e2.getRadius()))//this block changes the momentum of e2 
 							{
 								//this algorithm calculates gravity and modifies e2 velocity 
 								//finds the angle from e2 to e1
@@ -359,7 +404,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 							else//otherwise, if the objects are too close
 							{
 								//collide entities
-								collideEntities(i,a);
+								CollideParticles(e1,e2);
 							}
 						}
 					}
@@ -376,14 +421,14 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		super.paint(g);
 		Graphics2D g2d = (Graphics2D) g;
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-				RenderingHints.VALUE_ANTIALIAS_ON);
+				RenderingHints.VALUE_ANTIALIAS_OFF);
 
 		setBackground(Color.gray);
 		g2d.setPaint(Color.black);
 
 		g2d.fillRect(0, 0, 700, 700);
 		g2d.setPaint(Color.white);
-		g2d.setFont(new Font("Monospace", Font.PLAIN, 12));
+		g2d.setFont(new Font("Courier", Font.BOLD, 12));
 		g2d.fill(pauseButton);
 		g2d.fill(addObjectButton);
 		//g2d.fill(890, 20, 80, 20);
@@ -458,10 +503,10 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		CollisionSimulator game = new CollisionSimulator();
 		frame.add(game);
 		game.run();
-		
+
 	}
 
-	
+
 }
 
 class Entity
@@ -499,4 +544,25 @@ class Entity
 	{
 		return Math.sqrt(Mass/Math.PI);
 	}
+
+	public double getXVel()
+	{
+		return XMomentum/Mass;
+	}
+
+	public double getYVel()
+	{
+		return YMomentum/Mass;
+	}
+
+	public void setXVel(double xVel)
+	{
+		XMomentum = xVel*Mass;
+	}
+
+	public void setYVel(double yVel)
+	{
+		YMomentum = yVel*Mass;
+	}
+
 }
