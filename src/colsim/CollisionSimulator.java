@@ -2,13 +2,14 @@ package colsim;
 
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Rectangle;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.RenderingHints;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+
+import colsim.Entity;
 
 import java.util.ArrayList;
 import java.awt.event.MouseEvent;
@@ -17,47 +18,35 @@ import java.awt.event.MouseMotionListener;
 
 
 
+
+
+
 @SuppressWarnings("serial")
-public class CollisionSimulator extends JPanel implements MouseListener, MouseMotionListener, Runnable
+public class CollisionSimulator extends JPanel implements MouseListener, MouseMotionListener
 {
 	ArrayList<Entity> EntityList = new ArrayList<Entity>();//the type of the Entity. Can be 
 
+	//these variables are for the tracing. Every dot has a x and y coordinate
+	static final int MAX_TRACER_SIZE = 5000;
+	ArrayList<Double> TracerX = new ArrayList<Double>();
+	ArrayList<Double> TracerY = new ArrayList<Double>();
+
 
 	boolean mouseDown = false;
-	boolean gamepaused = true;
+	boolean paused = true;
 
 	int mousex = 0;
 	int mousey = 0;
 
-	int speed = 10;
+	int speed = 100;
+	final int vectormultiplier = 30;
 
-	private final Rectangle addObjectButton = new Rectangle(800, 20, 80, 20);
-	private final Rectangle pauseButton = new Rectangle(710, 20,80,20);
-	private final Rectangle setSpeedButton = new Rectangle(800, 20, 80, 20);
+	boolean tracerOn = true;
 
 	public CollisionSimulator()
 	{
 		addMouseListener(this);
 		addMouseMotionListener(this);	 
-	}
-
-	@Override
-	public void run() 
-	{
-		while(true)
-		{
-			try
-			{
-				repaint(10);
-				moveEntity();
-				gravity();
-				Thread.sleep(speed);
-			}
-			catch(InterruptedException e)
-			{
-
-			}
-		}
 	}
 
 	@Override
@@ -67,14 +56,20 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		mousey = event.getY();
 
 		//pause button
-		if(isButtonClicked(pauseButton))
+		if(IsButtonClicked(710, 20, 80, 20))
 		{
-			gamepaused = !gamepaused;
+			paused = !paused;
+		}
+		//toggles tracing of Entities
+		if(IsButtonClicked(890, 20, 80,20))
+		{
+			TracerX.clear();
+			TracerY.clear();
+			tracerOn = !tracerOn;
 		}
 
-
 		//changes the speed of the application
-		if(isButtonClicked(setSpeedButton))
+		if(IsButtonClicked(710, 260, 260,20))
 		{
 			speed = (int)getResponse("Input application speed. Only positive integers.", speed, true, true);
 		}
@@ -100,7 +95,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		mouseDown = true;
 
 		//creates a Entity that can be dragged
-		if(isButtonClicked(addObjectButton) && mouseDown)
+		if(IsButtonClicked(800, 20, 80, 20))
 		{
 			if(getEdited() > -1)
 			{
@@ -136,21 +131,23 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 	}
 
 	//checks if mouse is within bounds of button
-	boolean isButtonClicked(int x, int y, int width, int height)
+	boolean IsButtonClicked(int x, int y, int width, int height)
 	{
-		return isButtonClicked(new Rectangle(x, y, width, height));
-	}
-
-	boolean isButtonClicked(Rectangle r)
-	{
-		return r.contains(mousex, mousey);
+		if(mousex >= x && mousex <= x+width && mousey >= y && mousey <=y+height)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 
 
 	double getResponse(String prompt, double defaultValue, 
 			boolean needstobeint, boolean needstobepositive)
 	{
-		gamepaused = true;//pause game
+		paused = true;//pause game
 		//creates the actual prompt.
 		String response = JOptionPane.showInputDialog(prompt);
 		double numberInResponse = 0;
@@ -185,6 +182,22 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		return numberInResponse;
 	}
 
+	void removeEdited()
+	{
+		for(int i = 0; i < EntityList.size(); i++)
+		{
+			EntityList.get(i).edited = false;
+		}
+	}
+	
+	void removeVelEdited()
+	{
+		for(int i = 0; i < EntityList.size(); i++)
+		{
+			EntityList.get(i).veledited = false;
+		}
+	}
+	
 	int getEdited()
 	{
 		for(int i = 0; i < EntityList.size();i++)
@@ -197,55 +210,272 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		return -1;
 	}
 
-	//returns distance from 1 particle to another
-	public static double GetDistance(Entity i, Entity a)
+	int getVelEdited()
 	{
-		return Math.sqrt(Math.pow(i.X-a.X, 2) + Math.pow(i.Y-a.Y, 2));
-	}
-	//returns distance from 1 point to another
-	public static double GetDistance(double x1, double y1, double x2, double y2)
-	{
-		return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1- y2, 2));
-	}
-
-	public static double GetRelativeVelocity(Entity i, Entity a)
-	{
-		return Math.sqrt(Math.pow(i.getXVel() - a.getXVel(),2) + Math.pow(i.getYVel()-a.getYVel(), 2));
-	}
-
-	//returns direction from i to a
-	public static double GetDirection(Entity i, Entity a)
-	{
-		return  Math.atan2(a.Y-i.Y, a.X-i.X);
-	}
-
-	//this adds velocity to the specified particle
-	public static void AddVelocity(Entity modifiedParticle, double theta, double magnitude)
-	{
-		modifiedParticle.setXVel(modifiedParticle.getXVel() + magnitude * Math.cos(theta));
-		modifiedParticle.setYVel(modifiedParticle.getYVel() + magnitude * Math.sin(theta));
-	}
-
-
-
-	void collideEntities(Entity e1, Entity e2)
-	{
-		double newX = (e1.X*e1.Mass + e2.X*e2.Mass)/(e1.Mass+e2.Mass);//weighted averages
-		double newY = (e1.Y*e1.Mass + e2.Y*e2.Mass)/(e1.Mass+e2.Mass);
-		double newXMomentum = e1.XMomentum + e2.XMomentum;//add together momentum, conserving it
-		double newYMomentum = e1.YMomentum + e2.YMomentum;
-		double newMass = e1.Mass + e2.Mass;
-		Entity newEntity = new Entity(newX, newY, newXMomentum, newYMomentum, newMass, Entity.TYPE_GRAVITYAFFECTED);
-		if(e1.edited || e2.edited)
+		for(int i = 0; i < EntityList.size(); i++)
 		{
-			newEntity.edited = true;
+			if(EntityList.get(i).veledited)
+			{
+				return i;
+			}
 		}
-		EntityList.add(newEntity);
-		EntityList.remove(e1);
-		EntityList.remove(e2);//remove these entities
+		return -1;
 	}
 
-	//collides two particles together elastically
+	
+	double getRadius(Entity e)
+	{
+		return Math.sqrt(e.mass/Math.PI);
+	}
+	
+	void setVelocity(Entity e, double xVel, double yVel)
+	{
+		e.xMomentum = xVel*e.mass;
+		e.yMomentum = xVel*e.mass;
+	}
+	
+	void applyForce(Entity e, Force f)
+	{
+		e.xMomentum += f.magnitude*Math.cos(f.direction);
+		e.yMomentum += f.magnitude*Math.sin(f.direction);
+	}
+	
+	void collideEntities(int EntityIndex1, int EntityIndex2)
+	{
+		//double check to make sure these are within bounds
+		if(EntityIndex1 < EntityList.size() &&
+				EntityIndex2 < EntityList.size() && 
+				EntityIndex1!=EntityIndex2)//check that we are not colliding the same objects
+		{
+			Entity e1 = EntityList.get(EntityIndex1);
+			Entity e2 = EntityList.get(EntityIndex2);
+			double newx = (e1.x*e1.mass + e2.x*e2.mass)/(e1.mass+e2.mass);//weighted averages
+			double newY = (e1.y*e1.mass + e2.y*e2.mass)/(e1.mass+e2.mass);
+			double newxMomentum = e1.xMomentum + e2.xMomentum;//add together momentum, conserving it
+			double newyMomentum = e1.yMomentum + e2.yMomentum;
+			double newMass = e1.mass + e2.mass;
+			Entity newEntity = new Entity(newx, newY, newxMomentum, newyMomentum, newMass, Entity.TYPE_GRAVITYAFFECTED);
+			if(e1.edited || e2.edited)
+			{
+				newEntity.edited = true;
+			}
+			EntityList.add(newEntity);
+			EntityList.remove(e1);
+			EntityList.remove(e2);//remove these entities
+		}	
+	}
+
+	double getDistance(Entity e1, Entity e2)
+	{
+		return Math.sqrt(Math.pow(e1.x-e2.x,2) + Math.pow(e1.y-e2.y,2));
+	}
+	
+	/**
+	 * gets the direction to "to" from "from" in radians
+	 */
+	double getDirection(Entity from, Entity to)
+	{
+		return Math.atan2(to.y-from.y,to.x-from.x);
+	}
+	
+	/**
+	 * gets the Force of gravity acting on entity "affected" from the entity "source" 
+	 */
+	Force getGravity(Entity source, Entity affected)
+	{
+		double dist = getDistance(source, affected);
+		double dire = getDirection(affected, source);
+		double magn = (source.mass*affected.mass)*Math.pow(dist,-2);
+		return new Force(dire, magn);
+	}
+	
+	
+	//initializes the game
+	void initialize()
+	{
+		while(true)
+		{
+			try
+			{
+				functions();
+			}
+			catch(InterruptedException e)
+			{
+
+			}
+		}
+	}
+
+	void functions() throws InterruptedException
+	{
+		repaint(10);
+		moveEntity();
+		gravity();
+		Thread.sleep(speed);
+	}
+
+
+
+	void checkEdit()//lets you click to edit
+	{
+		if(EntityList.size() > 0)//if there are more than one objects
+		{
+			for(int i = 0; i < EntityList.size(); i++)
+			{
+				Entity e = EntityList.get(i);
+				double entityRadius = 1+getRadius(e);//getting radius from the area, in this case the mass
+				double mousedistance = Math.sqrt(Math.pow(mousex - e.x,2) + Math.pow(mousey - e.y,2));
+				if(mousedistance < entityRadius+2)//if it is within the radius
+				{
+					removeEdited();
+					e.edited = true;
+					if(mouseDown == true)
+					{
+						e.type = Entity.TYPE_DRAGGABLE;
+					}
+				}
+				
+			}
+		}
+
+		{
+			Entity e = EntityList.get(getEdited());
+			int vellocx = (int)(e.x + vectormultiplier*(e.xMomentum/e.mass)); 
+			int vellocy = (int)(e.y + vectormultiplier*(e.yMomentum/e.mass));
+			double velocitydistance = Math.sqrt(Math.pow(mousex - vellocx,2) + Math.pow(mousey - vellocy,2));
+			if(velocitydistance < 10)
+			{
+				e.veledited = true;
+			}
+		}
+		
+		{
+			Entity e = EntityList.get(getEdited());
+			//the following buttons edit the properties of the selected Entity
+			if(IsButtonClicked(900, 90, 50, 12))//set mass to a positive value
+			{
+				double newMass = getResponse("Input Mass", e.mass, false,true);
+				double xVelocity = e.xMomentum/e.mass;//get velocity of entity
+				double yVelocity = e.yMomentum/e.mass;
+				e.mass = newMass;
+				e.xMomentum = e.mass*xVelocity;
+				e.yMomentum = e.mass*yVelocity;
+			}
+			if(IsButtonClicked(900, 130, 50, 12))
+			{
+				e.x = getResponse("Input x location", e.x ,false,true);//set location (positive values only)
+			}
+			if(IsButtonClicked(900, 150, 50, 12))
+			{
+				e.y = getResponse("Input Y location", e.y ,false,true);
+			}
+			if(IsButtonClicked(900, 190, 50, 12))
+			{	
+				e.xMomentum = e.mass*getResponse("Input x momentum", e.xMomentum ,false,false);//sets the x momentum to the mass of the object * the user input velocity
+			}
+			if(IsButtonClicked(900, 210, 50, 12))
+			{
+				e.yMomentum = e.mass*getResponse("Input Y momentum", e.yMomentum ,false,false);
+			}
+		}
+	}
+
+
+	void moveEntity()
+	{
+		if(EntityList.size() > 0)
+		{
+			for(int i = 0; i < EntityList.size(); i++)
+			{
+				Entity e = EntityList.get(i);
+				if(e.type == Entity.TYPE_DRAGGABLE)
+				{
+					if(mouseDown)
+					{
+						e.x = mousex;
+						e.y = mousey;
+					}
+					else
+					{
+						e.type = Entity.TYPE_GRAVITYAFFECTED;
+					}
+				}
+				
+				if(e.edited && e.veledited)
+				{
+					if(mouseDown)
+					{
+						e.xMomentum = ((mousex - e.x)/vectormultiplier)*e.mass;
+						e.yMomentum = ((mousey - e.y)/vectormultiplier)*e.mass;
+					}
+					else
+					{
+						e.veledited = false;
+					}
+				}
+				
+				if(e.x < 0 || e.x > 700 || e.y < 0 || e.y > 700)
+				{
+					if(e.type == Entity.TYPE_GRAVITYAFFECTED)
+					{
+						EntityList.remove(i);
+					}
+				}			
+			}
+		}
+
+		if(paused == false)
+		{
+			if(EntityList.size() > 0)
+			{
+				for(int i = 0; i < EntityList.size(); i++)
+				{
+					Entity e = EntityList.get(i);
+					if(e.type == Entity.TYPE_GRAVITYAFFECTED && !e.anchored)
+					{
+						e.x += e.xMomentum/e.mass;
+						e.y += e.yMomentum/e.mass;//move each entity
+					}
+				}
+			}
+		}
+	}
+	
+
+	void gravity()
+	{
+		if(EntityList.size() > 0 && paused == false)
+		{
+			for(int i = 0; i < EntityList.size(); i++)
+			{
+				if(EntityList.get(i).type==Entity.TYPE_GRAVITYAFFECTED)
+				{
+					Entity e1 = EntityList.get(i);
+					for(int a = 0; a < EntityList.size(); a++)
+					{
+						Entity e2 = EntityList.get(a); 
+						if(i != a && e2.type == Entity.TYPE_GRAVITYAFFECTED && !e2.anchored)
+						{
+							double distance = Math.sqrt(Math.pow(e1.x-e2.x,2)+ Math.pow(e1.y-e2.y,2));
+							if(distance > 1 + 0.7*(getRadius(e1)+getRadius(e2)))//this block changes the momentum of e2 
+							{
+								Force f = getGravity(e1, e2);
+								applyForce(e2, f);
+							}
+							else//otherwise, if the objects are too close
+							{
+								//collide entities
+								collideEntities(i,a);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	
 	void CollideParticles(Entity p1, Entity p2)
 	{
 		double colAng = GetDirection(p1, p2);
@@ -268,160 +498,13 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 	}
 
 
-	void checkEdit()//lets you click to edit
-	{
-		if(EntityList.size() > 0)//if there are more than one objects
-		{
-			for(int i = 0; i < EntityList.size(); i++)
-			{
-				Entity e = EntityList.get(i);
-				double entityRadius = 1+e.getRadius();//getting radius from the area, in this case the mass
-				double mousedistance = Math.sqrt(Math.pow(mousex - e.X,2) + Math.pow(mousey - e.Y,2));
-				if(mousedistance < entityRadius+2)//if it is within the radius
-				{
-
-					int editedID = getEdited();
-					if(editedID > -1)//remove
-					{
-						EntityList.get(editedID).edited = false;
-					}
-					e.edited = true;
-					if(mouseDown == true)
-					{
-						e.Type = Entity.TYPE_DRAGGABLE;
-					}
-				}
-			}
-		}
-
-		int editedID = getEdited();
-		//the following buttons edit the properties of the selected Entity
-		if(isButtonClicked(900, 90, 50, 12))//set mass to a positive value
-		{
-			Entity e = EntityList.get(editedID);
-			double newMass = getResponse("Input Mass", e.Mass, false,true);
-
-			double xVelocity = e.XMomentum/e.Mass;//get velocity of entity
-			double yVelocity = e.YMomentum/e.Mass;
-			e.Mass = newMass;
-			e.XMomentum = e.Mass*xVelocity;
-			e.YMomentum = e.Mass*yVelocity;
-		}
-		if(isButtonClicked(900, 130, 50, 12))
-		{
-			Entity e = EntityList.get(editedID);
-			e.X = getResponse("Input X location", e.X ,false,true);//set location (positive values only)
-		}
-		if(isButtonClicked(900, 150, 50, 12))
-		{
-			Entity e = EntityList.get(editedID);
-			e.Y = getResponse("Input Y location", e.Y ,false,true);
-		}
-		if(isButtonClicked(900, 190, 50, 12))
-		{	
-			Entity e = EntityList.get(editedID);
-			e.XMomentum = e.Mass*getResponse("Input X momentum", e.XMomentum ,false,false);//sets the x momentum to the mass of the object * the user input velocity
-		}
-		if(isButtonClicked(900, 210, 50, 12))
-		{
-			Entity e = EntityList.get(editedID);
-			e.YMomentum = e.Mass*getResponse("Input Y momentum", e.YMomentum ,false,false);
-		}
-	}
-
-
-	void moveEntity()
-	{
-		if(EntityList.size() > 0)
-		{
-			for(int i = 0; i < EntityList.size(); i++)
-			{
-				Entity e = EntityList.get(i);
-				if(e.Type == Entity.TYPE_DRAGGABLE)
-				{
-					if(mouseDown)
-					{
-						e.X = mousex;
-						e.Y = mousey;
-					}
-					else
-					{
-						e.Type = Entity.TYPE_GRAVITYAFFECTED;
-					}
-				}
-
-				if(e.X < 0 || e.X > 700 || e.Y < 0 || e.Y > 700)
-				{
-					if(e.Type == Entity.TYPE_GRAVITYAFFECTED)
-					{
-						EntityList.remove(i);
-					}
-				}			
-			}
-		}
-
-		if(gamepaused == false)
-		{
-			if(EntityList.size() > 0)
-			{
-				for(int i = 0; i < EntityList.size(); i++)
-				{
-					Entity e = EntityList.get(i);
-					e.X += e.XMomentum/e.Mass;
-					e.Y += e.YMomentum/e.Mass;//move each entity
-				}
-			}
-		}
-	}
-
-
-	void gravity()
-	{
-		if(EntityList.size() > 0 && gamepaused == false)
-		{
-			for(int i = 0; i < EntityList.size(); i++)
-			{
-				if(EntityList.get(i).Type==Entity.TYPE_GRAVITYAFFECTED)
-				{
-					Entity e1 = EntityList.get(i);
-					for(int a = 0; a < EntityList.size(); a++)
-					{
-						Entity e2 = EntityList.get(a); 
-						if(i != a && e2.Type == Entity.TYPE_GRAVITYAFFECTED)
-						{
-							double distance = Math.sqrt(Math.pow(e1.X-e2.X,2)+ Math.pow(e1.Y-e2.Y,2));
-							if(distance > (e1.getRadius()+e2.getRadius()))//this block changes the momentum of e2 
-							{
-								//this algorithm calculates gravity and modifies e2 velocity 
-								//finds the angle from e2 to e1
-								double E2toE1Angle = Math.atan2(e1.Y-e2.Y,e1.X-e2.X);
-								//finds the magnitude of the force
-								double force = 1*(e1.Mass*e2.Mass)*Math.pow(distance,-2);
-								//apply force to e2
-								e2.XMomentum += Math.cos(E2toE1Angle)*force;
-								e2.YMomentum += Math.sin(E2toE1Angle)*force;
-							}
-							else//otherwise, if the objects are too close
-							{
-								//collide entities
-								CollideParticles(e1,e2);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-
-
 	@Override
 	public void paint(Graphics g) 
 	{
 		super.paint(g);
 		Graphics2D g2d = (Graphics2D) g;
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-				RenderingHints.VALUE_ANTIALIAS_OFF);
+				RenderingHints.VALUE_ANTIALIAS_ON);
 
 		setBackground(Color.gray);
 		g2d.setPaint(Color.black);
@@ -429,14 +512,15 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		g2d.fillRect(0, 0, 700, 700);
 		g2d.setPaint(Color.white);
 		g2d.setFont(new Font("Courier", Font.BOLD, 12));
-		g2d.fill(pauseButton);
-		g2d.fill(addObjectButton);
-		//g2d.fill(890, 20, 80, 20);
-		g2d.fill(setSpeedButton);
+		g2d.fillRect(710, 20, 80, 20);
+		g2d.fillRect(800, 20, 80, 20);
+		g2d.fillRect(890, 20, 80, 20);
+		g2d.fillRect(710, 260, 260, 20);
 		g2d.setPaint(Color.black);
+		g2d.drawString("TRACING", 893, 35);
 		g2d.drawString("ADD_OBJECT", 803, 35);
 		g2d.drawString("CHANGE_APPLICATION_SPEED", 713, 275);
-		if(gamepaused == true)
+		if(paused == true)
 		{
 			g2d.drawString("PLAY", 713, 35);
 		}
@@ -445,6 +529,36 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 			g2d.drawString("PAUSE", 720, 35);
 		}
 
+		//draw the tracing points
+		if(tracerOn)
+		{
+			g2d.setPaint(new Color(255,0,0,50));
+			for(int i = 0; i < TracerX.size(); i++)
+			{
+				if(TracerX.get(i) != null && TracerY.get(i) != null)
+				{
+					g2d.fillOval(TracerX.get(i).intValue(),TracerY.get(i).intValue(),3,3);
+				}
+			}
+		}
+
+		//add new dots and remove old ones
+		if(TracerX.size() > MAX_TRACER_SIZE)
+		{
+			TracerX.remove(TracerX.size() - MAX_TRACER_SIZE);
+			TracerY.remove(TracerY.size() - MAX_TRACER_SIZE);
+		}
+		for(int i = 0; i < EntityList.size(); i++)
+		{
+			Entity e = EntityList.get(i);
+			if(!paused && e.type == Entity.TYPE_GRAVITYAFFECTED && tracerOn == true)
+			{
+				TracerX.add(e.x);
+				TracerY.add(e.y);
+			}	
+		}
+		
+		
 		//draw entities
 		if(EntityList.size() > 0)
 		{
@@ -452,28 +566,34 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 			for(int i = 0; i < EntityList.size(); i++)
 			{
 				Entity e = EntityList.get(i);
-				int eRadius = 1+(int)e.getRadius();
-				g2d.fillOval((int)(e.X-eRadius), (int)(e.Y-eRadius), eRadius*2, eRadius*2);
+				int eRadius = 1+(int)getRadius(e);
+				g2d.fillOval((int)(e.x-eRadius), (int)(e.y-eRadius), eRadius*2, eRadius*2);
 			}
 		}
-
 
 		//draw the edited id
 		int editedID = getEdited();
 		if(editedID > -1)
 		{
 			Entity e = EntityList.get(editedID);
-			int bigradius = (int)(5+Math.sqrt(e.Mass));
-			g2d.drawOval((int)(e.X-bigradius), (int)(e.Y-bigradius), bigradius*2, bigradius*2);
+			int bigradius = (int)(5+Math.sqrt(e.mass));
+			g2d.setPaint(Color.WHITE);
+			g2d.drawOval((int)(e.x-bigradius), (int)(e.y-bigradius), bigradius*2, bigradius*2);
+			
+			int vellocx = (int)(e.x + vectormultiplier*(e.xMomentum/e.mass)); 
+			int vellocy = (int)(e.y + vectormultiplier*(e.yMomentum/e.mass));
+			g2d.setPaint(Color.CYAN);
+			g2d.drawLine((int)e.x, (int)e.y, vellocx, vellocy);
+			g2d.drawOval(vellocx - 5, vellocy - 5, 10, 10);
+			g2d.setPaint(Color.WHITE);
+			g2d.drawString("V", vellocx -2, vellocy +2);
+			
 			g2d.drawString("STATS:", 710, 60);//draw stats
-
-			g2d.drawString("MASS: " + (float)e.Mass, 710, 100);
-
-			g2d.drawString("X_POSITION: " +(float)e.X, 710, 140);
-			g2d.drawString("Y_POSITION: " +(float)e.Y, 710, 160);
-
-			g2d.drawString("X_VELOCITY: " +(float)(e.XMomentum/e.Mass), 710, 200);
-			g2d.drawString("Y_VELOCITY: " +(float)(e.YMomentum/e.Mass), 710, 220);
+			g2d.drawString("MASS: " + (float)e.mass, 710, 100);
+			g2d.drawString("X_POSITION: " +(float)e.x, 710, 140);
+			g2d.drawString("Y_POSITION: " +(float)e.y, 710, 160);
+			g2d.drawString("X_VELOCITY: " +(float)(e.xMomentum/e.mass), 710, 200);
+			g2d.drawString("Y_VELOCITY: " +(float)(e.yMomentum/e.mass), 710, 220);
 
 			g2d.fillRect(900, 90, 50, 12);//draw edit buttons
 
@@ -491,78 +611,62 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 
 			g2d.drawString("EDIT", 900, 200);
 			g2d.drawString("EDIT", 900, 220);
-			g2d.setPaint(Color.white);
 		}		
 	}	
 
 	public static void main(String[] args) throws InterruptedException 
 	{
-		JFrame frame = new JFrame("Collision Simulator");
-		frame.setSize(1000, 700);                                        //creating window
-		frame.setVisible(true);
+		JFrame frame = new JFrame("Gravity Simulator");
 		CollisionSimulator game = new CollisionSimulator();
 		frame.add(game);
-		game.run();
-
+		frame.setSize(1000, 700);                                        //creating window
+		frame.setVisible(true);
+		game.initialize();
 	}
-
-
 }
 
 class Entity
 {
 	public static final int TYPE_GRAVITYAFFECTED = 0;
 	public static final int TYPE_DRAGGABLE = 1;
-	public double X;
-	public double Y;
-	public double YMomentum = 0;
-	public double XMomentum = 0;
-	public double Mass;
-	public int Type;
+	public double x;
+	public double y;
+	public double yMomentum = 0;
+	public double xMomentum = 0;
+	public double mass;
+	public int type;
 
 	public boolean edited = false;
+	public boolean veledited = false;
 	public boolean anchored = false;
 	public Entity(double x, double y, double mass, int type)
 	{
-		X = x;
-		Y = y;
-		Mass = mass;
-		Type = type;
+		this.x = x;
+		this.y = y;
+		this.mass = mass;
+		this.type = type;
 	}
 
 	public Entity(double x, double y, double xmomentum, double ymomentum, double mass, int type)
 	{
-		X = x;
-		Y = y;
-		XMomentum = xmomentum;
-		YMomentum = ymomentum;
-		Mass = mass;
-		Type = type;
+		this.x = x;
+		this.y = y;
+		this.xMomentum = xmomentum;
+		this.yMomentum = ymomentum;
+		this.mass = mass;
+		this.type = type;
 	}
 
-	public double getRadius()
+}
+
+class Force 
+{
+	public double direction;
+	public double magnitude;
+	
+	public Force(double direction, double magnitude)
 	{
-		return Math.sqrt(Mass/Math.PI);
+		this.direction = direction;
+		this.magnitude = magnitude;
 	}
-
-	public double getXVel()
-	{
-		return XMomentum/Mass;
-	}
-
-	public double getYVel()
-	{
-		return YMomentum/Mass;
-	}
-
-	public void setXVel(double xVel)
-	{
-		XMomentum = xVel*Mass;
-	}
-
-	public void setYVel(double yVel)
-	{
-		YMomentum = yVel*Mass;
-	}
-
 }
