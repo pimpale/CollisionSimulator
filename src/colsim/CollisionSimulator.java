@@ -293,6 +293,9 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 	//initializes the game
 	void initialize()
 	{
+		EntityList.add(new Entity(350,350,500,Entity.TYPE_GRAVITYAFFECTED));
+		EntityList.add(new Entity(100, 350, 200, 0, 100, Entity.TYPE_GRAVITYAFFECTED));
+		
 		while(true)
 		{
 			try
@@ -337,7 +340,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 				
 			}
 		}
-
+		if(getEdited() != -1)
 		{
 			Entity e = EntityList.get(getEdited());
 			int vellocx = (int)(e.x + vectormultiplier*(e.xMomentum/e.mass)); 
@@ -349,6 +352,7 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 			}
 		}
 		
+		if(getEdited() != -1)
 		{
 			Entity e = EntityList.get(getEdited());
 			//the following buttons edit the properties of the selected Entity
@@ -459,13 +463,14 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 							double distance = Math.sqrt(Math.pow(e1.x-e2.x,2)+ Math.pow(e1.y-e2.y,2));
 							if(distance > 1 + 0.7*(getRadius(e1)+getRadius(e2)))//this block changes the momentum of e2 
 							{
-								Force f = getGravity(e1, e2);
-								applyForce(e2, f);
+								//Force f = getGravity(e1, e2);
+								//applyForce(e2, f);
 							}
 							else//otherwise, if the objects are too close
 							{
 								//collide entities
-								collideEntities(i,a);
+								CollideParticles(e1,e2);
+								//collideEntities(i,a);
 							}
 						}
 					}
@@ -474,27 +479,23 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 		}
 	}
 
-
-	
 	void CollideParticles(Entity p1, Entity p2)
 	{
-		double colAng = GetDirection(p1, p2);
-		double mag1 = Math.sqrt(p1.getXVel()*p1.getXVel()+p1.getYVel()*p1.getYVel());
-		double mag2 = Math.sqrt(p2.getXVel()*p2.getXVel()+p2.getYVel()*p2.getYVel());
-		double dir1 = Math.atan2(p1.getYVel(), p1.getXVel());
-		double dir2 = Math.atan2(p2.getYVel(), p2.getYVel());
+		double colAng = getDirection(p2, p1);
+		double mag1 = Math.hypot(p1.xMomentum/p1.mass, p1.yMomentum/p1.mass);
+		double mag2 = Math.hypot(p2.xMomentum/p2.mass, p2.yMomentum/p2.mass);
+		double dir1 = Math.atan2(p1.yMomentum, p1.xMomentum);
+		double dir2 = Math.atan2(p2.yMomentum, p2.xMomentum);
 		double nXvel_1 = mag1*Math.cos(dir1-colAng);
 		double nYvel_1 = mag1*Math.sin(dir1-colAng);
 		double nXvel_2 = mag2*Math.cos(dir2-colAng);
 		double nYvel_2 = mag2*Math.sin(dir2-colAng);
-		double final_Xvel_1 = ((p1.Mass-p2.Mass)*nXvel_1+(p2.Mass+p2.Mass)*nXvel_2)/(p1.Mass+p2.Mass);
-		double final_Xvel_2 = ((p1.Mass+p1.Mass)*nXvel_1+(p2.Mass-p1.Mass)*nXvel_2)/(p1.Mass+p2.Mass);
+		double final_Xvel_1 = ((p1.mass-p2.mass)*nXvel_1+(p2.mass+p2.mass)*nXvel_2)/(p1.mass+p2.mass);
+		double final_Xvel_2 = ((p1.mass+p1.mass)*nXvel_1+(p2.mass-p1.mass)*nXvel_2)/(p1.mass+p2.mass);
 		double final_Yvel_1 = nYvel_1;
 		double final_Yvel_2 = nYvel_2;
-		p1.setXVel(Math.cos(colAng)*final_Xvel_1+Math.cos(colAng+Math.PI/2)*final_Yvel_1);
-		p1.setYVel(Math.sin(colAng)*final_Xvel_1+Math.sin(colAng+Math.PI/2)*final_Yvel_1);
-		p2.setXVel(Math.cos(colAng)*final_Xvel_2+Math.cos(colAng+Math.PI/2)*final_Yvel_2);
-		p2.setYVel(Math.sin(colAng)*final_Xvel_2+Math.sin(colAng+Math.PI/2)*final_Yvel_2);
+		setVelocity(p1, Math.cos(colAng)*final_Xvel_1+Math.cos(colAng+Math.PI/2)*final_Yvel_1, Math.sin(colAng)*final_Xvel_1+Math.sin(colAng+Math.PI/2)*final_Yvel_1);
+		setVelocity(p2, Math.cos(colAng)*final_Xvel_2+Math.cos(colAng+Math.PI/2)*final_Yvel_2, Math.sin(colAng)*final_Xvel_2+Math.sin(colAng+Math.PI/2)*final_Yvel_2);
 	}
 
 
