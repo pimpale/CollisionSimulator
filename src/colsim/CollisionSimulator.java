@@ -481,21 +481,35 @@ public class CollisionSimulator extends JPanel implements MouseListener, MouseMo
 
 	void CollideParticles(Entity p1, Entity p2)
 	{
-		double colAng = getDirection(p2, p1);
-		double mag1 = Math.hypot(p1.xMomentum/p1.mass, p1.yMomentum/p1.mass);
-		double mag2 = Math.hypot(p2.xMomentum/p2.mass, p2.yMomentum/p2.mass);
-		double dir1 = Math.atan2(p1.yMomentum, p1.xMomentum);
-		double dir2 = Math.atan2(p2.yMomentum, p2.xMomentum);
-		double nXvel_1 = mag1*Math.cos(dir1-colAng);
-		double nYvel_1 = mag1*Math.sin(dir1-colAng);
-		double nXvel_2 = mag2*Math.cos(dir2-colAng);
-		double nYvel_2 = mag2*Math.sin(dir2-colAng);
-		double final_Xvel_1 = ((p1.mass-p2.mass)*nXvel_1+(p2.mass+p2.mass)*nXvel_2)/(p1.mass+p2.mass);
-		double final_Xvel_2 = ((p1.mass+p1.mass)*nXvel_1+(p2.mass-p1.mass)*nXvel_2)/(p1.mass+p2.mass);
-		double final_Yvel_1 = nYvel_1;
-		double final_Yvel_2 = nYvel_2;
-		setVelocity(p1, Math.cos(colAng)*final_Xvel_1+Math.cos(colAng+Math.PI/2)*final_Yvel_1, Math.sin(colAng)*final_Xvel_1+Math.sin(colAng+Math.PI/2)*final_Yvel_1);
-		setVelocity(p2, Math.cos(colAng)*final_Xvel_2+Math.cos(colAng+Math.PI/2)*final_Yvel_2, Math.sin(colAng)*final_Xvel_2+Math.sin(colAng+Math.PI/2)*final_Yvel_2);
+        double sx = p1.x-p2.x;
+        double sy = p1.y-p2.y;
+        double sxynorm = Math.sqrt(sx*sx+sy*sy);
+        double sxn = sx/sxynorm;
+        double syn = sy/sxynorm;
+
+        // find velocity of center of mass
+        double totmass = p1.mass + p2.mass;
+        double comdx = (p1.xMomentum+p2.xMomentum)/totmass;
+        double comdy = (p1.yMomentum+p2.yMomentum)/totmass;
+
+        double pn = (p1.xMomentum/p1.mass-comdx)*sxn + (p1.yMomentum/p1.mass-comdy)*syn;
+        double px = 2*sxn*pn;
+        double py = 2*syn*pn;
+
+        // subtracting this vector from m's momentum
+        p1.xMomentum -= px*p1.mass;
+        p1.yMomentum -= py*p1.mass;
+
+        // adjusting p2.s momentum so that total momentum
+        // is conserved
+        double mult = p1.mass;
+        p2.xMomentum += px*mult;
+        p2.yMomentum += py*mult;
+		
+        p1.x += 2*p1.xMomentum/p1.mass;
+        p1.y += 2*p1.yMomentum/p1.mass;
+        p2.x += 2*p2.xMomentum/p2.mass;
+        p2.y += 2*p2.yMomentum/p2.mass;
 	}
 
 
